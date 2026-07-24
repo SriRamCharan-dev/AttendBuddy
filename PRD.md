@@ -5,8 +5,8 @@
 AttendBuddy is a zero-cost, lightweight, automated attendance-tracking system designed to reduce student anxiety surrounding attendance thresholds. Built on **Google Apps Script**, **Google Sheets**, and the **Telegram Bot API**, it acts as a personal attendance assistant for students while offering group management capabilities for administrators.
 
 The primary objective of AttendBuddy is to provide students with clear, actionable insights into their attendance status. Instead of manually counting classes or guessing their standing, students receive automated daily check-ins on Telegram. The system dynamically computes:
-*   Their current cumulative term attendance percentage.
-*   A forecast of their term and month-end attendance under different scenarios.
+*   Their current cumulative monthly attendance percentage.
+*   A forecast of their month-end attendance under different scenarios.
 *   **Freedom Status**: The exact number of working days they can afford to skip (bunk) this month while remaining above the safe threshold.
 *   **Recovery Plan**: If below the threshold, the number of consecutive classes they must attend to return to the safe zone.
 
@@ -48,15 +48,13 @@ flowchart TD
     S1 --> AskName[Prompt: Enter full name]
     AskName --> WaitName[User replies with Name]
     WaitName --> S2[Set session: waiting_baseline_present]
-    S2 --> AskPres[Prompt: How many classes attended so far?]
+    S2 --> CalcTotal[System calculates exact working days till today]
+    CalcTotal --> AskPres[Prompt: How many classes attended so far?]
     AskPres --> WaitPres[User replies with Number]
-    WaitPres --> S3[Set session: waiting_baseline_total]
-    S3 --> AskTotal[Prompt: How many classes held in total?]
-    AskTotal --> WaitTotal[User replies with Number]
-    WaitTotal --> Verify{Total >= Present?}
-    Verify -- No --> Err[Show error & re-prompt total]
-    Err --> AskTotal
-    Verify -- Yes --> Save[Save to Users sheet & clear session]
+    WaitPres --> Verify{Number > Computed Total?}
+    Verify -- Yes --> Err[Show error & re-prompt]
+    Err --> AskPres
+    Verify -- No --> Save[Save to Users sheet & clear session]
     Save --> Success[Greet user with initial stats]
 ```
 
@@ -85,7 +83,7 @@ When a user taps an inline button (from the check-in prompt, nudge, or `/correct
 *   **Date Verification**: Ensures the button tapped belongs to *today's* date. Taps on outdated messages show: *"This prompt is from a different day and can no longer be used."*
 *   **Holiday Guard**: If a holiday was declared retroactively for today, block changes and notify: *"Today is a holiday — no attendance needed!"*
 *   **Locking & Logging**: Writes the record to the `Attendance` sheet using `LockService` to prevent write collisions. Logs the event (`ATTENDANCE_MARKED` or `ATTENDANCE_CORRECTION`) in the `AuditLog`.
-*   **Live Updates**: Updates the inline interaction and sends a confirmation message with the user's updated progress bar and forecasted monthly/term metrics.
+*   **Live Updates**: Updates the inline interaction and sends a confirmation message with the user's updated progress bar and forecasted monthly metrics.
 
 ### 3.4 Holiday & Calendar Management
 Holidays are managed dynamically by Admins via `/holiday` commands:
@@ -105,8 +103,8 @@ Admins customize behavior through `/settings` parameters:
 ### 3.6 Announcements & Monthly Summaries
 *   **Custom Broadcasts**: Admins can issue `/broadcast <message>` to deliver announcements immediately to all users.
 *   **Monthly Performance Summaries**: `/monthlystats` aggregates group stats for the current month:
-    1.  Calculates term and monthly forecasts for all registered users.
-    2.  Sorts users in descending order of their current term attendance percentage.
+    1.  Calculates monthly forecasts for all registered users.
+    2.  Sorts users in descending order of their current monthly attendance percentage.
     3.  Highlights at-risk users who are falling below the minimum threshold.
     4.  Presents a private preview to the admin with inline options: `[📢 Yes — broadcast to all]` or `[🔒 No — keep private]`.
     5.  If broadcast is approved, it sends the full performance table to all registered users.

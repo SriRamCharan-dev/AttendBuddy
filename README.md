@@ -85,7 +85,6 @@ Everything else is pre-filled with defaults. Review and adjust if needed:
 | key | default | notes |
 |-----|---------|-------|
 | `MIN_PERCENT` | `75` | Minimum attendance % required |
-| `TERM_START_DATE` | `2026-07-01` | First day of the term |
 | `WORK_DAYS` | `1,2,3,4,5,6` | Mon–Sat. Use `1,2,3,4,5` for Mon–Fri |
 | `DAILY_PROMPT_HOUR` / `MIN` | `8` / `30` | 8:30 AM IST |
 | `NUDGE_HOUR` / `MIN` | `9` / `15` | 9:15 AM IST nudge |
@@ -151,9 +150,9 @@ Everything else is pre-filled with defaults. Review and adjust if needed:
 
 ### Full onboarding test
 1. Send `/start` to your bot from Telegram
-2. Enter your name
-3. Enter baseline numbers (e.g. 10 attended, 12 total)
-4. Confirm the welcome message shows correct stats
+2. Send `/start`
+3. Enter your attended classes so far this month
+4. Use `/stats` to see the dashboard
 
 ### Manual prompt test
 1. Run **`testDailyPrompt`** from the Apps Script editor
