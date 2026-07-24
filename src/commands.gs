@@ -226,7 +226,7 @@ function handleFreeText(msg) {
     if (allHols.length > 0) {
       const formattedHols = allHols.map(h => {
         const d = parseInt(h.date.split('-')[2], 10);
-        return monthName + ' ' + d;
+        return monthName + ' ' + d + ' - ' + escapeHtml(h.reason || 'Holiday');
       }).join(', ');
       holText = ' and ' + allHols.length + ' admin holiday' + (allHols.length > 1 ? 's' : '') + ': ' + formattedHols;
     }
