@@ -211,12 +211,33 @@ function handleFreeText(msg) {
       sendMessage(chatId, '⚠️ Please enter your full name (at least 2 characters).');
       return;
     }
+    const joinDate  = todayIST();
+    const now = new Date();
+    const year = Number(Utilities.formatDate(now, 'Asia/Kolkata', 'yyyy'));
+    const month = Number(Utilities.formatDate(now, 'Asia/Kolkata', 'M'));
+    const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const monthName = MONTH_NAMES[month - 1];
+    const monthStart = year + '-' + String(month).padStart(2, '0') + '-01';
+    
+    const computedTotal = countWorkingDays(monthStart, joinDate);
+    
+    const allHols = getHolidaysForMonth(year, month).filter(h => h.date <= joinDate);
+    let holText = '';
+    if (allHols.length > 0) {
+      const formattedHols = allHols.map(h => {
+        const d = parseInt(h.date.split('-')[2], 10);
+        return monthName + ' ' + d;
+      }).join(', ');
+      holText = ' and ' + allHols.length + ' admin holiday' + (allHols.length > 1 ? 's' : '') + ': ' + formattedHols;
+    }
+
     setSession(chatId, { step: 'waiting_baseline_present', name: text });
     sendMessage(chatId,
       '🎉 Woohoo! So nice to meet you, <b>' + escapeHtml(text) + '</b>!\n\n' +
       '━━━━━━━━━━━━━━━━\n' +
-      '📊 To get your stats perfectly calibrated, I just need a quick baseline.\n\n' +
-      'How many classes have you <b>actually attended</b> so far this month? 🤓\n' +
+      '📊 This month (' + monthName + ') has exactly <b>' + computedTotal + '</b> total working days till date.\n' +
+      '<i>(I subtracted all Sundays' + holText + '.)</i>\n\n' +
+      'How many classes have you <b>actually attended</b> so far? 🤓\n' +
       '<i>(Just type a number, or hit me with a <b>0</b> if you are starting fresh!)</i>'
     );
     return;
