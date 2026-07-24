@@ -201,7 +201,7 @@ function handleCallbackQuery(callbackQuery) {
   sendMessage(chatId,
     (status === 'present' ? '✅ <b>Marked Present</b>' : '❌ <b>Marked Absent</b>') +
     ' for ' + date + '\n\n' +
-    (s ? bar + '\n📚 Term: <b>' + s.termPercent + '%</b> · Month-end forecast: <b>' + s.monthForecastPercent + '%</b>' : '') +
+    (s ? bar + '\n🗓️ This month: <b>' + s.percent + '%</b> · Month-end forecast: <b>' + s.monthForecastPercent + '%</b>' : '') +
     skipLine
   );
 }

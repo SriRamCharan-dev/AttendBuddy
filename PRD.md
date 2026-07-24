@@ -197,28 +197,28 @@ The statistics calculation in `stats.gs` uses pure arithmetic. To avoid performa
     *   If today is not resolved: `remainingStart` = today.
 
 ### 5.2 Stat Calculations
-*   **Elapsed Classes ($E_{total}$)**:
-    $$E_{total} = \text{baseline\_total} + \text{CountWorkingDays}(\text{firstTrackedDate}, \text{elapsedThrough})$$
-*   **Classes Attended ($P_{total}$)**:
-    $$P_{total} = \text{baseline\_present} + \text{CountPresentLogs}(\text{firstTrackedDate}, \text{elapsedThrough})$$
-*   **Term Attendance Percentage ($Att_{term}$)**:
-    $$Att_{term} = \frac{P_{total}}{E_{total}} \times 100 \quad (\text{rounded to 1 decimal place; defaults to } 100\% \text{ if } E_{total} = 0)$$
+*   **Elapsed Classes This Month ($E_{month}$)**:
+    $$E_{month} = (\text{joined\_this\_month} ? \text{baseline\_total} : 0) + \text{CountWorkingDays}(\text{trackedStart}, \text{elapsedThrough})$$
+*   **Classes Attended This Month ($P_{month}$)**:
+    $$P_{month} = (\text{joined\_this\_month} ? \text{baseline\_present} : 0) + \text{CountPresentLogs}(\text{trackedStart}, \text{elapsedThrough})$$
+*   **Monthly Attendance Percentage ($Att_{month}$)**:
+    $$Att_{month} = \frac{P_{month}}{E_{month}} \times 100 \quad (\text{rounded to 1 decimal place; defaults to } 100\% \text{ if } E_{month} = 0)$$
 *   **Remaining Classes this Month ($R_{month}$)**:
     $$R_{month} = \text{CountWorkingDays}(\text{remainingStart}, \text{monthLastDay})$$
 *   **Total Month-End Classes ($M_{total}$)**:
-    $$M_{total} = E_{total} + R_{month}$$
+    $$M_{total} = E_{month} + R_{month}$$
 *   **Month-End Forecast Percentage ($Att_{forecast}$)**:
     Assuming the user attends 100% of the remaining classes in the current month:
-    $$Att_{forecast} = \frac{P_{total} + R_{month}}{M_{total}} \times 100$$
+    $$Att_{forecast} = \frac{P_{month} + R_{month}}{M_{total}} \times 100$$
 *   **Required Future Attendance ($P_{required}$)**:
     The minimum number of future classes the user must attend to meet the target threshold ($Target\%$) by the end of the month:
-    $$P_{required} = \max\left(0, \left\lceil \frac{Target}{100} \times M_{total} - P_{total} \right\rceil\right)$$
+    $$P_{required} = \max\left(0, \left\lceil \frac{Target \times M_{total} - 100 \times P_{month}}{100} \right\rceil\right)$$
 *   **Skippable Days ($Bunks_{allowed}$)**:
     The number of classes the user can safely skip (bunk) this month while maintaining an attendance percentage $\ge Target\%$ at month-end:
     $$Bunks_{allowed} = \max(0, R_{month} - P_{required})$$
-*   **Recovery Classes ($Recovery$ - Term-based)**:
-    If the current attendance percentage is below the target threshold, the number of consecutive classes the user must attend *starting immediately* to bring their cumulative attendance back to the target:
-    $$Recovery = \max\left(0, \left\lceil \frac{\frac{Target}{100} \times E_{total} - P_{total}}{1 - \frac{Target}{100}} \right\rceil\right)$$
+*   **Recovery Classes ($Recovery$ - Month-based)**:
+    If the current attendance percentage is below the target threshold, the number of consecutive classes the user must attend *starting immediately* to bring their monthly attendance back to the target:
+    $$Recovery = \max\left(0, \left\lceil \frac{Target \times E_{month} - 100 \times P_{month}}{100 - Target} \right\rceil\right)$$
 
 ---
 

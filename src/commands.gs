@@ -103,10 +103,8 @@ function handleStats(msg) {
   sendMessage(chatId,
     '🔥 <b>Your Attendance — ' + MONTH_NAMES[s.month - 1] + ' ' + s.year + '</b>\n\n' +
     bar + '\n<i>' + safeStatus + '</i>\n\n' +
-    '📚 <b>Term attendance:</b> ' + s.termPercent + '% (' + s.present + '/' + s.elapsed + ')\n' +
-    '📈 <b>Term forecast:</b> ' + s.termForecastPercent + '% if you attend every remaining class\n\n' +
-    '🗓️ <b>This month:</b> ' + s.monthPercent + '% (' + s.monthPresent + '/' + s.monthElapsed + ')\n' +
-    '🔮 <b>Month-end forecast:</b> ' + s.monthForecastPercent + '%\n' +
+    '🗓️ <b>This month:</b> ' + s.percent + '% (' + s.present + '/' + s.elapsed + ')\n' +
+    '🔮 <b>Month-end forecast:</b> ' + s.monthForecastPercent + '% if you attend every remaining class\n' +
     '⏳ Classes remaining this month: <b>' + s.remaining + '</b>\n' +
     '🎯 Target: <b>' + s.minPct + '%</b>' +
     skipLine
@@ -218,7 +216,7 @@ function handleFreeText(msg) {
       '🎉 Woohoo! So nice to meet you, <b>' + escapeHtml(text) + '</b>!\n\n' +
       '━━━━━━━━━━━━━━━━\n' +
       '📊 To get your stats perfectly calibrated, I just need a quick baseline.\n\n' +
-      'How many classes have you <b>actually attended</b> so far since the semester started? 🤓\n' +
+      'How many classes have you <b>actually attended</b> so far this month? 🤓\n' +
       '<i>(Just type a number, or hit me with a <b>0</b> if you are starting fresh!)</i>'
     );
     return;
@@ -231,46 +229,43 @@ function handleFreeText(msg) {
       return;
     }
     const n = Number(text);
-    setSession(chatId, { ...session, step: 'waiting_baseline_total', baselinePresent: n });
-    sendMessage(chatId,
-      '📝 Got it! <b>' + n + '</b> classes conquered. 💪\n\n' +
-      'Now, how many total classes have been <b>held</b> in total?\n' +
-      '<i>(Make sure it\'s at least ' + n + '!)</i>'
-    );
-    return;
-  }
-
-  // Step 3: baseline total
-  if (session.step === 'waiting_baseline_total') {
-    if (!/^\d+$/.test(text)) {
-      sendMessage(chatId, '⚠️ Total classes must be a whole number ≥ ' + session.baselinePresent + '. Please try again.');
-      return;
-    }
-    const n = Number(text);
-    if (n < session.baselinePresent) {
-      sendMessage(chatId, '⚠️ Total classes must be a number ≥ ' + session.baselinePresent + '. Please try again.');
-      return;
-    }
 
     const joinDate  = todayIST();
+    const now = new Date();
+    const year = Number(Utilities.formatDate(now, 'Asia/Kolkata', 'yyyy'));
+    const month = Number(Utilities.formatDate(now, 'Asia/Kolkata', 'M'));
+    const monthStart = year + '-' + String(month).padStart(2, '0') + '-01';
+    
+    // Automatically compute total classes held this month up to joinDate
+    const computedTotal = countWorkingDays(monthStart, joinDate);
+    
+    // If user somehow enters more attended classes than held, cap it or error.
+    // For smoothness, we'll cap it at computedTotal if it's over, or just let them re-enter.
+    if (n > computedTotal && computedTotal > 0) {
+      sendMessage(chatId, '⚠️ You cannot have attended more classes than were actually held this month (' + computedTotal + '). Please enter a valid number.');
+      return;
+    }
+    
+    const baselineTotal = Math.max(n, computedTotal); // Safely ensure total >= present
+
     const adminIds  = (getConfig('ADMIN_IDS') || '').split(',').map(s => s.trim());
     const adminFlag = adminIds.includes(chatId);
 
-    upsertUser(chatId, session.name, joinDate, adminFlag, session.baselinePresent, n);
+    upsertUser(chatId, session.name, joinDate, adminFlag, n, baselineTotal);
     setSession(chatId, null);
 
     const s      = computeStats(chatId);
-    const pct    = s ? s.percent : (n > 0 ? Math.round(session.baselinePresent / n * 1000) / 10 : 100);
+    const pct    = s ? s.percent : (baselineTotal > 0 ? Math.round(n / baselineTotal * 1000) / 10 : 100);
     const minPct = Number(getConfig('MIN_PERCENT')) || 75;
     const bar    = buildProgressBar(pct, minPct);
 
     sendMessage(chatId,
       '🎊 <b>Boom! You\'re officially all set up!</b> 🎊\n\n' +
       '👤 Buddy: <b>' + escapeHtml(session.name) + '</b>\n' +
-      '📊 Starting point: ' + session.baselinePresent + ' / ' + n + ' classes\n\n' +
+      '📊 Starting point: ' + n + ' / ' + baselineTotal + ' classes\n\n' +
       bar + '\n\n' +
       (s && s.skippable > 0
-        ? '📅 Awesome news: You can safely chill and skip <b>' + s.skippable + '</b> more class(es) without dipping below your threshold! 🏖️'
+        ? '📅 Awesome news: You can safely chill and skip <b>' + s.skippable + '</b> more class(es) this month without dipping below your threshold! 🏖️'
         : '⚠️ You\'re living on the edge! Better attend your upcoming classes to build up a safety net! 🏃‍♂️💨') +
       '\n\n━━━━━━━━━━━━━━━━\n' +
       '📲 I\'ll slide into your DMs every morning at <b>8:30 AM</b> to ask if you\'re going to college.\n' +

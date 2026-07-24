@@ -295,7 +295,7 @@ function handleMonthlyStats(msg) {
 
   for (const { name, s } of stats) {
     const icon = s.percent >= s.minPct ? '✅' : '🚨';
-    summary   += icon + ' ' + name + ': <b>' + s.termPercent + '% term</b> (' + s.present + '/' + s.elapsed + ') · <b>' + s.monthForecastPercent + '% month forecast</b>\n';
+    summary   += icon + ' ' + name + ': <b>' + s.percent + '%</b> (' + s.present + '/' + s.elapsed + ') · <b>' + s.monthForecastPercent + '% forecast</b>\n';
   }
 
   if (atRisk.length > 0) {
@@ -376,7 +376,7 @@ function handleAdminCallback(callbackQuery) {
     let msg = '📊 <b>Attendance Snapshot — ' + monthName + ' ' + year + '</b>\n\n';
     for (const { name, s } of stats) {
       const icon = s.percent >= s.minPct ? '✅' : '🚨';
-      msg       += icon + ' ' + name + ': <b>' + s.termPercent + '% term</b> · <b>' + s.monthForecastPercent + '% month forecast</b>\n';
+      msg       += icon + ' ' + name + ': <b>' + s.percent + '%</b> · <b>' + s.monthForecastPercent + '% forecast</b>\n';
     }
     msg += '\n<i>Stay consistent! 💪</i>';
 
