@@ -467,12 +467,12 @@ export function CinematicHero({
                 </div>
 
                 <div className="floating-badge absolute flex bottom-12 lg:bottom-20 right-[-15px] lg:right-[-80px] floating-ui-badge rounded-xl lg:rounded-2xl p-3 lg:p-4 items-center gap-3 lg:gap-4 z-30">
-                  <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-b from-amber-500/20 to-amber-900/10 flex items-center justify-center border border-amber-400/30 shadow-inner">
-                    <span className="text-base lg:text-lg drop-shadow-lg" aria-hidden="true">📢</span>
+                  <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-full bg-gradient-to-b from-violet-500/30 to-violet-900/20 flex items-center justify-center border border-violet-400/30 shadow-inner">
+                    <span className="text-base lg:text-lg drop-shadow-lg" aria-hidden="true">🤖</span>
                   </div>
                   <div>
-                    <p className="text-white text-xs lg:text-sm font-bold tracking-tight">Holiday Declared</p>
-                    <p className="text-amber-200/50 text-[10px] lg:text-xs font-medium">Stats recalculated</p>
+                    <p className="text-white text-xs lg:text-sm font-bold tracking-tight">v2: AI Chatbot</p>
+                    <p className="text-violet-200/60 text-[10px] lg:text-xs font-medium">Just ask "Can I skip?"</p>
                   </div>
                 </div>
 
