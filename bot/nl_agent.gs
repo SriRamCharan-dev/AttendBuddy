@@ -30,50 +30,50 @@ function handleNLQuery(msg) {
   const chatId = String(msg.chat.id);
   const text = (msg.text || '').trim();
   
-  const apiKey = getConfig('GEMINI_API_KEY');
+  const apiKey = getConfig('GROQ_API_KEY');
   if (!apiKey) {
-    sendMessage(chatId, '❓ I did not understand that command. Use /help to see all available commands.\n*(NL Layer inactive: GEMINI_API_KEY missing)*');
+    sendMessage(chatId, '❓ I did not understand that command. Use /help to see all available commands.\n*(NL Layer inactive: GROQ_API_KEY missing)*');
     return;
   }
 
   // Send indicator
   sendMessage(chatId, '🤖 <i>Thinking...</i>');
 
-  const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
+  const url = 'https://api.groq.com/openai/v1/chat/completions';
   
   const payload = {
-    "system_instruction": {
-      "parts": [{ "text": SYSTEM_PROMPT }]
-    },
-    "contents": [{
-      "parts": [{ "text": text }]
-    }],
-    "generationConfig": {
-      "temperature": 0.0,
-      "responseMimeType": "application/json"
-    }
+    "model": "llama-3.1-8b-instant",
+    "messages": [
+      { "role": "system", "content": SYSTEM_PROMPT },
+      { "role": "user", "content": text }
+    ],
+    "temperature": 0.0,
+    "response_format": { "type": "json_object" }
   };
 
   try {
     const response = UrlFetchApp.fetch(url, {
       method: 'post',
       contentType: 'application/json',
+      headers: {
+        'Authorization': 'Bearer ' + apiKey
+      },
       payload: JSON.stringify(payload),
       muteHttpExceptions: true
     });
     
     if (response.getResponseCode() !== 200) {
-      Logger.log('Gemini API Error: ' + response.getContentText());
+      Logger.log('Groq API Error: ' + response.getContentText());
       sendMessage(chatId, '⚠️ Sorry, my AI brain is currently overloaded. Please use standard slash commands like /help.');
       return;
     }
 
     const json = JSON.parse(response.getContentText());
-    if (!json.candidates || !json.candidates[0] || !json.candidates[0].content) {
+    if (!json.choices || !json.choices[0] || !json.choices[0].message) {
       throw new Error("Invalid response format");
     }
     
-    const outputText = json.candidates[0].content.parts[0].text;
+    const outputText = json.choices[0].message.content;
     const result = JSON.parse(outputText);
 
     // Route based on intent

@@ -42,7 +42,7 @@ function seedConfig() {
     ['ADMIN_IDS', ''],
     ['WEBHOOK_URL', ''],
     ['WEBHOOK_SECRET', Utilities.getUuid().replace(/-/g, '')],
-    ['GEMINI_API_KEY', '']
+    ['GROQ_API_KEY', '']
   ];
   defaults.forEach(([key, value]) => {
     if (!getConfig(key)) setConfig(key, value);
