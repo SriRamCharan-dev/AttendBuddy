@@ -1,30 +1,71 @@
 // ============================================================
-// nl_agent.gs — Natural Language Interface via Gemini API
+// nl_agent.gs — Natural Language Interface via Groq API
 // ============================================================
 
 const SYSTEM_PROMPT = `
-You are the natural language router for AttendBuddy, an attendance and KPI tracking bot.
-Your job is strictly to classify the user's intent into one of the known commands.
-You are NOT allowed to converse. You must ONLY output a valid JSON object matching this schema:
-
-{
-  "intent": "STRING", // Must be one of: "logKPI", "getStats", "getHistory", "getGrowthStats", "adminAction", "unknown"
-  "args": { // arguments based on the intent
-    "metric": "STRING", // only for logKPI (e.g., 'dsa', 'study_hours')
-    "value": NUMBER     // only for logKPI (e.g., 3)
-  }
-}
-
-Definitions of intents:
-- "getStats": The user wants to see their current attendance stats, how many bunks they have left, or their general status.
-- "getHistory": The user wants to see their past attendance records.
-- "getGrowthStats": The user wants to see their KPI, streaks, or growth progress.
-- "logKPI": The user is reporting a metric (e.g., "I solved 3 dsa problems", "studied for 2 hours", "did 5 pushups"). Extract the metric name into 'metric' and the number into 'value'. Note: metric should ideally match active metrics they might have.
-- "adminAction": The user is asking to broadcast a message, change settings, declare a holiday, or correct attendance.
-- "unknown": Anything else, general chat, or ambiguous requests.
-
-Remember, ONLY output the JSON object. Do not wrap in markdown blocks, just raw JSON.
+You are AttendBuddy, a friendly attendance tracking bot. 
+If the user asks to perform an action (like checking stats, viewing history, adding holidays, correcting attendance, or checking group stats), you MUST call the appropriate tool.
+If the user just says hello, makes small talk, or asks a question unrelated to the tools, respond naturally and politely in a short sentence, and suggest they can use commands like checking their attendance. Do NOT call any tools for small talk.
 `;
+
+const NL_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "getStats",
+      description: "Get the user's current attendance stats and skippable days (e.g. 'how am I doing this month', 'can I skip tomorrow')."
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getHistory",
+      description: "Get the user's attendance history for the last 30 days (e.g. 'what did I mark last Tuesday')."
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getHolidays",
+      description: "Get the list of holidays for this month (e.g. 'when is the next holiday')."
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "correctOwnAttendance",
+      description: "Correct the user's own attendance for today (e.g. 'I actually went today, fix it')."
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "changeSettings",
+      description: "Admin action: change global settings like minimum percentage (e.g. 'set the minimum to 75%')."
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "addHoliday",
+      description: "Admin action: add or remove a holiday (e.g. 'add a holiday tomorrow')."
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "broadcast",
+      description: "Admin action: broadcast a message to all users."
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "getMonthlyStats",
+      description: "Admin action: get the monthly summary of all users' attendance (e.g. 'show me this month\\'s group summary')."
+    }
+  }
+];
 
 function handleNLQuery(msg) {
   const chatId = String(msg.chat.id);
@@ -47,8 +88,9 @@ function handleNLQuery(msg) {
       { "role": "system", "content": SYSTEM_PROMPT },
       { "role": "user", "content": text }
     ],
-    "temperature": 0.0,
-    "response_format": { "type": "json_object" }
+    "tools": NL_TOOLS,
+    "tool_choice": "auto",
+    "temperature": 0.0
   };
 
   try {
@@ -64,7 +106,7 @@ function handleNLQuery(msg) {
     
     if (response.getResponseCode() !== 200) {
       Logger.log('Groq API Error: ' + response.getContentText());
-      sendMessage(chatId, '⚠️ Sorry, my AI brain is currently overloaded. Please use standard slash commands like /help.');
+      sendMessage(chatId, '❓ I didn\'t catch that — try /help to see all available commands.');
       return;
     }
 
@@ -73,37 +115,45 @@ function handleNLQuery(msg) {
       throw new Error("Invalid response format");
     }
     
-    const outputText = json.choices[0].message.content;
-    const result = JSON.parse(outputText);
+    const message = json.choices[0].message;
+    
+    if (!message.tool_calls || message.tool_calls.length === 0) {
+      if (message.content) {
+        sendMessage(chatId, message.content);
+      } else {
+        sendMessage(chatId, '❓ I didn\'t catch that — try /help to see all available commands.');
+      }
+      return;
+    }
+    
+    const toolCall = message.tool_calls[0].function.name;
 
-    // Route based on intent
-    switch (result.intent) {
+    // Route based on function call
+    switch (toolCall) {
       case 'getStats':
         handleStats(msg);
         break;
       case 'getHistory':
         handleHistory(msg);
         break;
-      case 'getGrowthStats':
-        handleGrowthStats(msg);
+      case 'getHolidays':
+        handleHolidays(msg);
         break;
-      case 'logKPI':
-        if (!result.args || !result.args.metric || result.args.value === undefined) {
-          sendMessage(chatId, '⚠️ I understood you want to log a KPI, but I couldn\'t extract the metric and value. Please use `/logkpi <metric> <value>`.');
-        } else {
-          // Construct textArgs array and pass to handleLogKpi
-          // handleLogKpi expects args from msg.text, so let's mock it
-          const mockMsg = {
-             ...msg,
-             text: '/logkpi ' + result.args.metric + ' ' + result.args.value
-          };
-          handleLogKpi(mockMsg);
-        }
+      case 'correctOwnAttendance':
+        handleCorrect(msg);
         break;
-      case 'adminAction':
-        sendMessage(chatId, '🛡️ For security reasons, administrative actions (like broadcasting, holidays, settings, or corrections) cannot be done via natural language. Please use the exact slash-command (e.g. /broadcast, /holiday, /settings, /correct).');
+      case 'getMonthlyStats':
+        handleMonthlyStats(msg);
         break;
-      case 'unknown':
+      case 'changeSettings':
+        sendMessage(chatId, '🛡️ For security reasons, administrative actions cannot be done via natural language. Please use the exact slash-command: /settings');
+        break;
+      case 'addHoliday':
+        sendMessage(chatId, '🛡️ For security reasons, administrative actions cannot be done via natural language. Please use the exact slash-command: /holiday');
+        break;
+      case 'broadcast':
+        sendMessage(chatId, '🛡️ For security reasons, administrative actions cannot be done via natural language. Please use the exact slash-command: /broadcast');
+        break;
       default:
         sendMessage(chatId, '❓ I didn\'t catch that — try /help to see all available commands.');
         break;
@@ -113,3 +163,4 @@ function handleNLQuery(msg) {
     sendMessage(chatId, '❓ I didn\'t catch that — try /help to see all available commands.');
   }
 }
+

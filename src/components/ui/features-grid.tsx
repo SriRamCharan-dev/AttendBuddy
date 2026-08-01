@@ -5,6 +5,11 @@ import { motion } from "framer-motion";
 
 const features = [
   {
+    icon: "🤖",
+    title: "v2: Natural Language AI",
+    desc: "Just ask 'Can I skip tomorrow?' or 'When is the next holiday?' Powered by Llama 3 on Groq.",
+  },
+  {
     icon: "⏰",
     title: "Smart Reminders",
     desc: "8:30 AM prompt → 9:15 nudge → 9:30 auto-absent. Three layers so nothing falls through.",
@@ -18,11 +23,6 @@ const features = [
     icon: "🏖️",
     title: "Holiday Intelligence",
     desc: "Admins add/remove holidays on the fly. Stats recalculate instantly across all students.",
-  },
-  {
-    icon: "📢",
-    title: "Admin Broadcasts",
-    desc: "One command to announce holidays, schedule changes, or monthly reports to everyone.",
   },
   {
     icon: "🔄",

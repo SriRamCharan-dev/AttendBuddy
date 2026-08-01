@@ -291,6 +291,10 @@ function handleFreeText(msg) {
       '\n\n━━━━━━━━━━━━━━━━\n' +
       '📲 I\'ll slide into your DMs every morning at <b>8:30 AM</b> to ask if you\'re going to college.\n' +
       'You can type /stats anytime to check your standing. /help shows all my tricks! ✨'
+    );
+  }
+}
+
 // ---- GrowKPI Commands ----------------------------------------
 
 function handleLogKpi(msg, textArgs) {
