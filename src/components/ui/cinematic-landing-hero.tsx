@@ -187,7 +187,7 @@ export function CinematicHero({
   tagline1 = "Your attendance,",
   tagline2 = "handled.",
   cardHeading = "Smart attendance, zero stress.",
-  cardDescription = <><span className="text-white font-semibold">AttendBuddy</span> is the intelligent Telegram companion that sits beside your college&apos;s FRS — daily reminders, automatic holiday adjustments, real-time forecasts, and admin broadcasts so you never drop below 75%.</>,
+  cardDescription = <><span className="text-white font-semibold">AttendBuddy</span> is the intelligent Telegram companion that sits beside your college&apos;s FRS. With our new Agentic v2, you can use normal conversational text or classic slash commands to check stats, get daily reminders, and manage holidays so you never drop below 75%.</>,
   metricValue = 82,
   metricLabel = "Attendance %",
   ctaHeading = "Never miss the mark.",
