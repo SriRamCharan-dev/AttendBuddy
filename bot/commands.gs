@@ -201,7 +201,7 @@ function handleFreeText(msg) {
   const session = getSession(chatId);
 
   if (!session) {
-    sendMessage(chatId, '❓ Use /help to see available commands.');
+    handleNLQuery(msg);
     return;
   }
 
@@ -291,6 +291,84 @@ function handleFreeText(msg) {
       '\n\n━━━━━━━━━━━━━━━━\n' +
       '📲 I\'ll slide into your DMs every morning at <b>8:30 AM</b> to ask if you\'re going to college.\n' +
       'You can type /stats anytime to check your standing. /help shows all my tricks! ✨'
-    );
+// ---- GrowKPI Commands ----------------------------------------
+
+function handleLogKpi(msg, textArgs) {
+  const chatId = String(msg.chat.id);
+  if (!getUser(chatId)) {
+    sendMessage(chatId, '❌ You\'re not registered yet. Send /start to begin.');
+    return;
   }
+
+  // Expecting: /logkpi <metric> <value>
+  // textArgs comes from the router if we pass it, or we parse from msg.text
+  const args = msg.text.trim().split(/\s+/).slice(1);
+  if (args.length < 2) {
+    sendMessage(chatId, '⚠️ Usage: /logkpi <metric> <value>\nExample: /logkpi dsa 3');
+    return;
+  }
+
+  const metric = args[0].toLowerCase();
+  const value = Number(args[1]);
+
+  if (isNaN(value)) {
+    sendMessage(chatId, '⚠️ The value must be a number.\nExample: /logkpi dsa 3');
+    return;
+  }
+
+  const activeMetricsStr = getConfig('kpimetrics');
+  const metrics = activeMetricsStr ? activeMetricsStr.split(',').map(s => s.trim().toLowerCase()) : [];
+
+  if (!metrics.includes(metric)) {
+    sendMessage(chatId, '❌ Unknown metric. Active metrics: ' + (metrics.join(', ') || 'none'));
+    return;
+  }
+
+  const today = todayIST();
+  logKpiValue(chatId, today, metric, value, 'manual');
+  logAudit(chatId, 'KPI_LOGGED', metric, 'value: ' + value + ' source: manual');
+
+  // get streak to reply
+  const stats = computeGrowthStats(chatId);
+  const metricStats = stats && stats.metrics ? stats.metrics[metric] : null;
+  const streak = metricStats ? metricStats.streak : 1;
+
+  sendMessage(chatId, '✅ Logged ' + value + ' for <b>' + escapeHtml(metric) + '</b> today!\nCurrent streak: 🔥 ' + streak + ' day(s)');
+}
+
+function handleGrowthStats(msg) {
+  const chatId = String(msg.chat.id);
+  if (!getUser(chatId)) {
+    sendMessage(chatId, '❌ You\'re not registered yet. Send /start to begin.');
+    return;
+  }
+
+  const stats = computeGrowthStats(chatId);
+  if (!stats || !stats.active) {
+    sendMessage(chatId, '📈 No growth metrics are currently active for this group.');
+    return;
+  }
+
+  let text = '📈 <b>Your Growth Stats (This Week)</b>\n\n';
+  
+  const metricKeys = Object.keys(stats.metrics);
+  if (metricKeys.length === 0) {
+    text += 'No metrics configured.';
+  } else {
+    for (const m of metricKeys) {
+      const data = stats.metrics[m];
+      text += '🔹 <b>' + m.toUpperCase() + '</b>\n';
+      text += 'Total this week: ' + data.weeklyTotal + ' (Target: ' + (data.target > 0 ? (data.target*7) : 'None') + ')\n';
+      if (data.target > 0) {
+        text += 'Progress: ' + data.progress + '%\n';
+      }
+      text += 'Streak: 🔥 ' + data.streak + ' day(s)\n\n';
+    }
+  }
+
+  if (stats.correlationFlag) {
+    text += '<i>⚠️ Note: Your attendance dipped this week and no KPIs were logged — worth checking in with yourself.</i>\n';
+  }
+
+  sendMessage(chatId, text);
 }

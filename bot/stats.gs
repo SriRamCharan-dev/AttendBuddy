@@ -189,3 +189,110 @@ function buildProgressBar(percent, minPct) {
   return safeIcon + ' <code>' + bar + '</code> <b>' + percent + '%</b>\n' +
     '🎯 Target ' + minPct + '% · ' + label + ' pts';
 }
+
+// ---- Growth KPI Stats ---------------------------------------
+
+function getISOWeekBounds(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00Z');
+  const day = d.getUTCDay() || 7; // 1=Mon .. 7=Sun
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+  // Get Monday
+  const monday = new Date(d);
+  monday.setUTCDate(d.getUTCDate() - 3);
+  const sunday = new Date(monday);
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  return {
+    monday: Utilities.formatDate(monday, 'Asia/Kolkata', 'yyyy-MM-dd'),
+    sunday: Utilities.formatDate(sunday, 'Asia/Kolkata', 'yyyy-MM-dd')
+  };
+}
+
+function computeGrowthStats(chatId) {
+  const user = getUser(chatId);
+  if (!user) return null;
+
+  const today = todayIST();
+  const kpiRecords = getKpiRecordsForUser(chatId);
+  
+  const activeMetricsStr = getConfig('kpimetrics');
+  if (!activeMetricsStr) return { active: false };
+  const metrics = activeMetricsStr.split(',').map(s => s.trim()).filter(Boolean);
+  
+  const { monday, sunday } = getISOWeekBounds(today);
+  
+  const results = {};
+  let anyKpiThisWeek = false;
+
+  for (const m of metrics) {
+    const targetStr = getConfig('kpitarget_' + m) || '0';
+    const target = Number(targetStr);
+    
+    // Weekly total
+    const thisWeekRecords = kpiRecords.filter(r => r.metricKey === m && r.date >= monday && r.date <= sunday);
+    const weeklyTotal = thisWeekRecords.reduce((acc, r) => acc + r.value, 0);
+    if (weeklyTotal > 0) anyKpiThisWeek = true;
+
+    // Progress
+    let progress = 0;
+    if (target > 0) {
+      progress = Math.min(100, Math.round((weeklyTotal / (target * 7)) * 100));
+    }
+
+    // Streak
+    let streak = 0;
+    let curDate = today;
+    while (true) {
+      const rec = kpiRecords.find(r => r.metricKey === m && r.date === curDate);
+      if (!rec || rec.value <= 0) {
+        // If today has no record, we still check yesterday before breaking the streak completely
+        if (curDate === today) {
+           curDate = previousDate(curDate);
+           const yestRec = kpiRecords.find(r => r.metricKey === m && r.date === curDate);
+           if (!yestRec || yestRec.value <= 0) break; // streak broken yesterday
+           // if yesterday has record, we don't break, streak counts yesterday's value. 
+           // wait, we should count it. So we let loop continue but we increment streak?
+           // No, if today has no record, streak is just yesterday's streak. We shouldn't increment for today.
+           // Actually, easiest way: if today is missing, skip incrementing streak, check yesterday. 
+           curDate = previousDate(today);
+           continue; 
+        } else {
+           break;
+        }
+      }
+      streak++;
+      curDate = previousDate(curDate);
+    }
+    
+    results[m] = { weeklyTotal, progress, streak, target };
+  }
+  
+  // Correlation flag: Did attendance drop >10% this week compared to last week, AND KPI total = 0?
+  let correlationFlag = false;
+  if (!anyKpiThisWeek) {
+    const lastWeekMon = previousDate(previousDate(previousDate(previousDate(previousDate(previousDate(previousDate(monday)))))));
+    const lastWeekSun = previousDate(monday);
+    
+    const attRecords = getAttendanceForUser(chatId, lastWeekMon, sunday);
+    
+    const lastWeekAtt = attRecords.filter(r => r.date >= lastWeekMon && r.date <= lastWeekSun);
+    const thisWeekAtt = attRecords.filter(r => r.date >= monday && r.date <= sunday);
+    
+    const lwPresent = lastWeekAtt.filter(r => r.status === 'present').length;
+    const lwElapsed = countWorkingDays(lastWeekMon, lastWeekSun);
+    const lwPct = lwElapsed > 0 ? (lwPresent/lwElapsed)*100 : 100;
+    
+    const twPresent = thisWeekAtt.filter(r => r.status === 'present').length;
+    let elapsedThroughTw = today; 
+    if (elapsedThroughTw > sunday) elapsedThroughTw = sunday;
+    const twElapsed = countWorkingDays(monday, elapsedThroughTw);
+    const twPct = twElapsed > 0 ? (twPresent/twElapsed)*100 : 100;
+    
+    if (lwPct - twPct > 10) {
+      correlationFlag = true;
+    }
+  }
+
+  return { active: true, metrics: results, correlationFlag };
+}

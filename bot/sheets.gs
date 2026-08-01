@@ -122,6 +122,7 @@ function getUser(chatId) {
         isAdmin:         data[i][3] === true || data[i][3] === 'TRUE',
         baselinePresent: Number(data[i][4]) || 0,
         baselineTotal:   Number(data[i][5]) || 0,
+        kpiPublic:       data[i][6] === true || data[i][6] === 'TRUE',
         row:             i + 1
       };
     }
@@ -129,7 +130,7 @@ function getUser(chatId) {
   return null;
 }
 
-function upsertUser(chatId, name, joinDate, isAdmin, baselinePresent, baselineTotal) {
+function upsertUser(chatId, name, joinDate, isAdmin, baselinePresent, baselineTotal, kpiPublic) {
   const lock = LockService.getScriptLock();
   lock.waitLock(5000);
   try {
@@ -137,13 +138,15 @@ function upsertUser(chatId, name, joinDate, isAdmin, baselinePresent, baselineTo
     const data  = sheet.getDataRange().getValues();
     for (let i = 1; i < data.length; i++) {
       if (String(data[i][0]) === String(chatId)) {
-        sheet.getRange(i + 1, 1, 1, 6).setValues([[
-          String(chatId), name, joinDate, isAdmin, baselinePresent, baselineTotal
+        const existingKpiPublic = data[i][6] === true || data[i][6] === 'TRUE';
+        const finalKpiPublic = kpiPublic !== undefined ? kpiPublic : existingKpiPublic;
+        sheet.getRange(i + 1, 1, 1, 7).setValues([[
+          String(chatId), name, joinDate, isAdmin, baselinePresent, baselineTotal, finalKpiPublic
         ]]);
         return;
       }
     }
-    sheet.appendRow([String(chatId), name, joinDate, isAdmin, baselinePresent, baselineTotal]);
+    sheet.appendRow([String(chatId), name, joinDate, isAdmin, baselinePresent, baselineTotal, kpiPublic || false]);
   } finally {
     lock.releaseLock();
   }
@@ -161,7 +164,8 @@ function getAllUsers() {
         joinDate:        dateKey(data[i][2]),
         isAdmin:         data[i][3] === true || data[i][3] === 'TRUE',
         baselinePresent: Number(data[i][4]) || 0,
-        baselineTotal:   Number(data[i][5]) || 0
+        baselineTotal:   Number(data[i][5]) || 0,
+        kpiPublic:       data[i][6] === true || data[i][6] === 'TRUE'
       });
     }
   }
@@ -319,4 +323,66 @@ function getHolidaysForMonth(year, month) {
     }
   }
   return holidays;
+}
+
+// ---- GrowKPI -----------------------------------------------
+
+const SHEET_GROWKPI = 'GrowKPI';
+
+function logKpiValue(chatId, date, metricKey, value, source) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(5000);
+  try {
+    let sheet = getSheet(SHEET_GROWKPI);
+    if (!sheet) return; // Failsafe if setup not run yet
+    
+    const data = sheet.getDataRange().getValues();
+    // Check if entry exists for this chatId + date + metricKey
+    for (let i = 1; i < data.length; i++) {
+      if (String(data[i][0]) === String(chatId) && dateKey(data[i][1]) === date && String(data[i][2]) === String(metricKey)) {
+        sheet.getRange(i + 1, 4, 1, 2).setValues([[Number(value), source]]);
+        return;
+      }
+    }
+    sheet.appendRow([String(chatId), date, String(metricKey), Number(value), source]);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function getKpiRecordsForUser(chatId) {
+  const sheet = getSheet(SHEET_GROWKPI);
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  const records = [];
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(chatId)) {
+      records.push({
+        date: dateKey(data[i][1]),
+        metricKey: String(data[i][2]),
+        value: Number(data[i][3]),
+        source: String(data[i][4])
+      });
+    }
+  }
+  return records;
+}
+
+function getAllKpiRecords() {
+  const sheet = getSheet(SHEET_GROWKPI);
+  if (!sheet) return [];
+  const data = sheet.getDataRange().getValues();
+  const records = [];
+  for (let i = 1; i < data.length; i++) {
+    if (data[i][0]) {
+      records.push({
+        chatId: String(data[i][0]),
+        date: dateKey(data[i][1]),
+        metricKey: String(data[i][2]),
+        value: Number(data[i][3]),
+        source: String(data[i][4])
+      });
+    }
+  }
+  return records;
 }

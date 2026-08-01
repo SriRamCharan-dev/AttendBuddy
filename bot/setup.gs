@@ -19,11 +19,12 @@ function createSheets() {
     return sheet;
   }
 
-  ensureSheet('Users', ['chat_id', 'name', 'join_date', 'is_admin', 'baseline_present', 'baseline_total'], '#4285F4');
+  ensureSheet('Users', ['chat_id', 'name', 'join_date', 'is_admin', 'baseline_present', 'baseline_total', 'kpi_public'], '#4285F4');
   ensureSheet('Attendance', ['chat_id', 'date', 'status', 'marked_at'], '#34A853');
   ensureSheet('Holidays', ['date', 'reason', 'added_by'], '#FBBC04');
   ensureSheet('Config', ['key', 'value'], '#EA4335');
   ensureSheet('AuditLog', ['timestamp', 'actor_chat_id', 'action', 'target', 'details'], '#9334E6');
+  ensureSheet('GrowKPI', ['chat_id', 'date', 'metric_key', 'value', 'source'], '#00ACC1');
 }
 
 function seedConfig() {
@@ -40,7 +41,8 @@ function seedConfig() {
     ['WORK_DAYS', '1,2,3,4,5,6'],
     ['ADMIN_IDS', ''],
     ['WEBHOOK_URL', ''],
-    ['WEBHOOK_SECRET', Utilities.getUuid().replace(/-/g, '')]
+    ['WEBHOOK_SECRET', Utilities.getUuid().replace(/-/g, '')],
+    ['GEMINI_API_KEY', '']
   ];
   defaults.forEach(([key, value]) => {
     if (!getConfig(key)) setConfig(key, value);

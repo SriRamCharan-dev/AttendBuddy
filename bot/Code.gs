@@ -90,6 +90,8 @@ function processUpdate(update) {
   else if (cmd === '/broadcast')    handleBroadcast(msg);     // admin
   else if (cmd === '/monthlystats') handleMonthlyStats(msg);  // admin
   else if (cmd === '/settings')     handleSettings(msg);       // admin
+  else if (cmd === '/logkpi')       handleLogKpi(msg);
+  else if (cmd === '/growthstats')  handleGrowthStats(msg);
   else if (text.startsWith('/'))            sendMessage(chatId, '❓ Unknown command. Use /help to see all available commands.');
   else                                      handleFreeText(msg);
 }

@@ -65,7 +65,28 @@ function handleSettings(msg) {
     return;
   }
 
-  sendMessage(chatId, '⚠️ Use /settings, /settings min 75, or /settings workdays 1,2,3,4,5,6.');
+  if (setting === 'kpimetrics') {
+    const raw = parts.slice(2).join('').replace(/\s/g, '').toLowerCase();
+    setConfig('kpimetrics', raw);
+    logAudit(chatId, 'SETTING_CHANGED', 'kpimetrics', raw);
+    sendMessage(chatId, '✅ KPI Metrics updated to <b>' + (raw || 'None') + '</b>.');
+    return;
+  }
+
+  if (setting === 'kpitarget') {
+    const metric = (parts[2] || '').toLowerCase();
+    const value = Number(parts[3]);
+    if (!metric || isNaN(value)) {
+      sendMessage(chatId, '⚠️ Usage: /settings kpitarget <metric> <value>\nExample: /settings kpitarget dsa 3');
+      return;
+    }
+    setConfig('kpitarget_' + metric, String(value));
+    logAudit(chatId, 'SETTING_CHANGED', 'kpitarget_' + metric, String(value));
+    sendMessage(chatId, '✅ KPI Target for <b>' + metric + '</b> updated to <b>' + value + '</b>.');
+    return;
+  }
+
+  sendMessage(chatId, '⚠️ Use /settings min 75, /settings workdays 1,2,3,4,5,6, /settings kpimetrics dsa,study_hours, or /settings kpitarget dsa 3.');
 }
 
 function sendHolidayList(chatId) {
@@ -304,6 +325,9 @@ function handleMonthlyStats(msg) {
     summary += '\n🎉 Everyone is above the ' + (Number(getConfig('MIN_PERCENT')) || 75) + '% threshold!';
   }
 
+  const kpiBoard = buildKpiLeaderboard(year, monthIndex + 1);
+  if (kpiBoard) summary += '\n\n' + kpiBoard;
+
   // Send preview to admin
   sendMessage(chatId, summary);
 
@@ -380,8 +404,53 @@ function handleAdminCallback(callbackQuery) {
     }
     msg += '\n<i>Stay consistent! 💪</i>';
 
+    const kpiBoard = buildKpiLeaderboard(year, mIdx + 1);
+    if (kpiBoard) msg += '\n\n' + kpiBoard;
+
     sendMessage(chatId, '⏳ Broadcasting monthly summary…');
     const sent = broadcastMessage(msg);
     sendMessage(chatId, '✅ Monthly summary broadcast to <b>' + sent + '</b> users.');
   }
+}
+
+function buildKpiLeaderboard(year, month) {
+  const activeMetricsStr = getConfig('kpimetrics');
+  if (!activeMetricsStr) return '';
+  const metrics = activeMetricsStr.split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  if (metrics.length === 0) return '';
+
+  const prefix = year + '-' + String(month).padStart(2, '0');
+  const allKpis = getAllKpiRecords().filter(r => r.date.startsWith(prefix) && metrics.includes(r.metricKey));
+  if (allKpis.length === 0) return '';
+
+  const allUsers = getAllUsers();
+  const publicUsers = allUsers.filter(u => u.kpiPublic);
+  if (publicUsers.length === 0) return '';
+
+  let board = '🏆 <b>Monthly KPI Leaderboard</b>\n\n';
+  for (const m of metrics) {
+    const userTotals = {};
+    for (const u of publicUsers) {
+      userTotals[u.chatId] = 0;
+    }
+    for (const rec of allKpis) {
+      if (rec.metricKey === m && userTotals[rec.chatId] !== undefined) {
+        userTotals[rec.chatId] += rec.value;
+      }
+    }
+    const sorted = Object.keys(userTotals)
+      .map(cid => ({ name: publicUsers.find(u => u.chatId === cid).name, total: userTotals[cid] }))
+      .filter(x => x.total > 0)
+      .sort((a, b) => b.total - a.total);
+    
+    if (sorted.length > 0) {
+      board += '🔹 <b>' + m.toUpperCase() + '</b>\n';
+      for (let i = 0; i < sorted.length; i++) {
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '▫️';
+        board += medal + ' ' + escapeHtml(sorted[i].name) + ': ' + sorted[i].total + '\n';
+      }
+      board += '\n';
+    }
+  }
+  return board.trim();
 }

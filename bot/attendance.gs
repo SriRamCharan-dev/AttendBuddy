@@ -144,6 +144,23 @@ function handleCallbackQuery(callbackQuery) {
     return;
   }
 
+  // Handle KPI callbacks
+  const kpiMatch = data.match(/^kpi_log_([a-zA-Z0-9_]+)_(\d+)$/);
+  if (kpiMatch) {
+    const metric = kpiMatch[1];
+    const value = Number(kpiMatch[2]);
+    const today = todayIST();
+    logKpiValue(chatId, today, metric, value, 'button');
+    logAudit(chatId, 'KPI_LOGGED', metric, 'value: ' + value + ' source: button');
+    
+    answerCallbackQuery(callbackQuery.id, '✅ ' + metric.toUpperCase() + ' logged!');
+    const stats = computeGrowthStats(chatId);
+    const metricStats = stats && stats.metrics ? stats.metrics[metric] : null;
+    const streak = metricStats ? metricStats.streak : 1;
+    sendMessage(chatId, '✅ Logged ' + value + ' for <b>' + escapeHtml(metric) + '</b> today!\nCurrent streak: 🔥 ' + streak + ' day(s)');
+    return;
+  }
+
   // Parse attendance callbacks
   const PATTERNS = [
     { re: /^att_present_(\d{4}-\d{2}-\d{2})$/,         status: 'present' },
@@ -204,4 +221,21 @@ function handleCallbackQuery(callbackQuery) {
     (s ? bar + '\n🗓️ This month: <b>' + s.percent + '%</b> · Month-end forecast: <b>' + s.monthForecastPercent + '%</b>' : '') +
     skipLine
   );
+
+  // KPI Follow-up Prompt
+  const activeMetricsStr = getConfig('kpimetrics');
+  if (activeMetricsStr) {
+    const metrics = activeMetricsStr.split(',').map(m => m.trim().toLowerCase()).filter(Boolean);
+    if (metrics.length > 0) {
+      const m = metrics[0]; 
+      sendInlineKeyboard(chatId,
+        '🚀 Quick log: Your ' + escapeHtml(m.toUpperCase()) + ' count for today?',
+        [[
+          { text: '0', callback_data: 'kpi_log_' + m + '_0' },
+          { text: '1-2', callback_data: 'kpi_log_' + m + '_1' },
+          { text: '3+', callback_data: 'kpi_log_' + m + '_3' }
+        ]]
+      );
+    }
+  }
 }
